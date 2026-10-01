@@ -47,7 +47,7 @@ TRACTOR_FRAMES = {
 DEFAULT_GRASS_COLOR = "#0b750b"
 LEFT_PASS_COLOR = "#499849"
 RIGHT_PASS_COLOR = "#064d06"
-PASS_SIZE = 6
+PASS_SIZE = 8
 
 # canvas.is2x() doesn't always exist in standard Pixlet environments;
 # safely default to standard 32x64 unless explicitly working with a 2x setup.
@@ -66,11 +66,41 @@ def mower_animate(direction = 'left'):
         frames.append(
             render.Stack(
                 children = [
+                    animation.Transformation(
+                        duration = 100,
+                        child = render.Box(width=CANVAS_WIDTH * 3, height=CANVAS_HEIGHT, color=DEFAULT_GRASS_COLOR),
+                        keyframes = [
+                            animation.Keyframe(
+                                percentage = 0.0,
+                                transforms = [animation.Translate(-CANVAS_WIDTH, -PASS_SIZE if IS_2X else 0)],
+                                curve = "linear",
+                            ),
+                            animation.Keyframe(
+                                percentage = 1.0,
+                                transforms = [animation.Translate(-CANVAS_WIDTH, -PASS_SIZE if IS_2X else 0)]
+                            ),
+                        ],
+                    ),
+                    animation.Transformation(
+                        duration = 100,
+                        child = render.Box(width=CANVAS_WIDTH * 3, height=PASS_SIZE, color=DEFAULT_GRASS_COLOR if direction == 'left' else RIGHT_PASS_COLOR),
+                        keyframes = [
+                            animation.Keyframe(
+                                percentage = 0.0,
+                                transforms = [animation.Translate(-CANVAS_WIDTH, CANVAS_HEIGHT - (PASS_SIZE * 2))],
+                                curve = "linear",
+                            ),
+                            animation.Keyframe(
+                                percentage = 1.0,
+                                transforms = [animation.Translate(-CANVAS_WIDTH, CANVAS_HEIGHT - (PASS_SIZE * 2))]
+                            ),
+                        ],
+                    ),
                     render.Padding(
-                        pad = (34, 50, 0, 0),
+                        pad = (34, 48, 0, 0),
                         child = render.Box(width=CANVAS_WIDTH + ASSET_SIZE,
                         height=PASS_SIZE,
-                        color=LEFT_PASS_COLOR if direction == 'left' else RIGHT_PASS_COLOR
+                        color=LEFT_PASS_COLOR if direction == 'left' else DEFAULT_GRASS_COLOR,
                         ),
                     ),
                     render.Image(width = ASSET_SIZE, height = ASSET_SIZE, src = file_data.readall())
@@ -82,46 +112,49 @@ def mower_animate(direction = 'left'):
 
 
 def renderMowerSequence():
-    return render.Sequence(
+    PASS_COUNT = CANVAS_HEIGHT // PASS_SIZE
+    animationSequences = []
+    screenYOffset = 56 if IS_2X else 41
+
+    for asset_pass in range(PASS_COUNT):
+        direction = 'left' if asset_pass % 2 == 0 else 'right'
+        yOffset = CANVAS_HEIGHT - (screenYOffset + (asset_pass * PASS_SIZE))
+        animationSequences.append(
+            animation.Transformation(
+                child = mower_animate(direction),
+                duration = 100,
+                delay = 0,
+                origin = animation.Origin(0.5, 0.5),
+                direction = "normal",
+                fill_mode = "forwards",
+                keyframes = [
+                    animation.Keyframe(
+                        percentage = 0.0,
+                        transforms = [animation.Translate(CANVAS_WIDTH, yOffset)] if direction == 'left' else [animation.Translate(-ASSET_SIZE, yOffset)],
+                        curve = "linear",
+                    ),
+                    animation.Keyframe(
+                        percentage = 1.0,
+                        transforms = [animation.Translate(-ASSET_SIZE, yOffset)] if direction == 'left' else [animation.Translate(CANVAS_WIDTH, yOffset)],
+                    ),
+                ],
+            )
+        )
+    return render.Stack(
         children = [
-            animation.Transformation(
-                child = mower_animate('left'),
-                duration = 100,
-                delay = 0,
-                origin = animation.Origin(0.5, 0.5),
-                direction = "normal",
-                fill_mode = "forwards",
-                keyframes = [
-                    animation.Keyframe(
-                    percentage = 0.0,
-                    transforms = [animation.Translate(CANVAS_WIDTH, 8)],
-                    curve = "linear",
-                    ),
-                    animation.Keyframe(
-                    percentage = 1.0,
-                    transforms = [animation.Translate(-ASSET_SIZE, 8)],
-                    ),
+            render.Column(
+                children=[
+                    render.Box(width=CANVAS_WIDTH, height=PASS_SIZE, color=RIGHT_PASS_COLOR),
+                    render.Box(width=CANVAS_WIDTH, height=PASS_SIZE, color=LEFT_PASS_COLOR),
+                    render.Box(width=CANVAS_WIDTH, height=PASS_SIZE, color=RIGHT_PASS_COLOR),
+                    render.Box(width=CANVAS_WIDTH, height=PASS_SIZE, color=LEFT_PASS_COLOR),
+                    render.Box(width=CANVAS_WIDTH, height=PASS_SIZE, color=RIGHT_PASS_COLOR),
+                    render.Box(width=CANVAS_WIDTH, height=PASS_SIZE, color=LEFT_PASS_COLOR),
+                    render.Box(width=CANVAS_WIDTH, height=PASS_SIZE, color=RIGHT_PASS_COLOR),
+                    render.Box(width=CANVAS_WIDTH, height=PASS_SIZE, color=LEFT_PASS_COLOR),
                 ],
             ),
-            animation.Transformation(
-                child = mower_animate('right'),
-                duration = 100,
-                delay = 0,
-                origin = animation.Origin(0.5, 0.5),
-                direction = "normal",
-                fill_mode = "forwards",
-                keyframes = [
-                    animation.Keyframe(
-                    percentage = 0.0,
-                    transforms = [animation.Translate(-ASSET_SIZE, 0)],
-                    curve = "linear",
-                    ),
-                    animation.Keyframe(
-                    percentage = 1.0,
-                    transforms = [animation.Translate(CANVAS_WIDTH, 0)],
-                    ),
-                ],
-            ),
+            render.Sequence(children = animationSequences)
         ]
     )
 
@@ -134,7 +167,6 @@ def main(config):
         child = render.Box(
             width = CANVAS_WIDTH,
             height = CANVAS_HEIGHT,
-            color = DEFAULT_GRASS_COLOR,
             child = renderScene()
         )
     )
